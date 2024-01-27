@@ -3,3 +3,6 @@ root = true
 [*]
 indent_style = space
 indent_size = 2
+
+[*.{kt,kts}]
+ktlint_standard_no-wildcard-imports = disabled

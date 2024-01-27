@@ -2,18 +2,62 @@ package demo
 
 import MongoDBClient
 import User
-import org.bson.types.ObjectId
+import io.ktor.application.*
+import io.ktor.features.*
+import io.ktor.gson.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
 
 fun main() {
-  val mongoDBClient = MongoDBClient()
+  embeddedServer(Netty, port = 8080) {
+    install(ContentNegotiation) {
+      gson {
+      }
+    }
+    routing {
+      get("/user") {
+        val mongoDBClient = MongoDBClient()
+        val users = mongoDBClient.retrieveData()
+        call.respond(users)
+      }
 
-  for (i in 1..10) {
-    val newUser = User(ObjectId(), getRandomString(10), getRandomString(10), getRandomInt(2))
-    insertData(mongoDBClient, newUser)
-  }
+      get("/user/{user}") {
+        val mongoDBClient = MongoDBClient()
+        val users = mongoDBClient.retrieveData()
+        val user = call.parameters["user"]
+        val userFound = users.find { it.user == user }
+        if (userFound != null) {
+          call.respond(userFound)
+        } else {
+          call.respondText("User not found")
+        }
+      }
 
-  // val users = retriverData(mongoDBClient)
-  // users.forEach { println(it) }
+      post("/user") {
+        val mongoDBClient = MongoDBClient()
+        val newUser = call.receive<User>()
+
+        mongoDBClient.insertData(newUser)
+        call.respond("User created with ID: ${newUser._id}")
+      }
+
+      delete("/user/{user}") {
+        val mongoDBClient = MongoDBClient()
+        val users = mongoDBClient.retrieveData()
+        val user = call.parameters["user"]
+        val userFound = users.find { it.user == user }
+        if (userFound != null) {
+          mongoDBClient.deleteData(userFound)
+          call.respondText("User deleted")
+        } else {
+          call.respondText("User not found")
+        }
+      }
+    }
+  }.start(wait = true)
 }
 
 fun insertData(
@@ -49,4 +93,15 @@ fun getRandomInt(length: Int): Int {
     .map { allowedChars.random() }
     .joinToString("")
     .toInt()
+}
+
+fun deleteData(
+  client: MongoDBClient,
+  data: User,
+) {
+  try {
+    client.deleteData(data)
+  } catch (e: Exception) {
+    print("Erro ao deletar dados: ${e.message}")
+  }
 }
